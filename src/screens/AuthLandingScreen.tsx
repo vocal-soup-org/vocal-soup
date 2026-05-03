@@ -1,13 +1,9 @@
 // src/screens/AuthLandingScreen.tsx
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { RootStackParamList } from "../../App";
 import { colors, spacing, borderRadius, typography, shadows } from "../theme";
 
-type Props = NativeStackScreenProps<RootStackParamList, "AuthLanding">;
-
-export const AuthLandingScreen: React.FC<Props> = ({ navigation }) => {
+export const AuthLandingScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       {/* Decorative background element */}

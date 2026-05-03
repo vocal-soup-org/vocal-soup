@@ -15,6 +15,7 @@ import { RootStackParamList } from "../../App";
 import { Audio } from "expo-av";
 import { useAuth } from "../context/AuthContext";
 import { storyApi, ApiError, type PuzzleDetail } from "../lib/api";
+import { STATIC_PUZZLES } from "../lib/staticData";
 import { colors, spacing, borderRadius, typography, shadows } from "../theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Game">;
@@ -71,8 +72,7 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
     (async () => {
       const { status } = await Audio.requestPermissionsAsync();
       setHasPermission(status === "granted");
-      const data = await storyApi.getPuzzle(puzzleId);
-      setPuzzleData(data);
+      setPuzzleData(STATIC_PUZZLES[puzzleId] ?? null);
     })();
   }, [puzzleId]);
 

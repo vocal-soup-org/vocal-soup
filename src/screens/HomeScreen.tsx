@@ -1,12 +1,12 @@
 // src/screens/HomeScreen.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   FlatList,
-  ActivityIndicator,
+  Animated,
   Dimensions,
   ImageBackground,
   Image,
@@ -17,6 +17,7 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../../App";
 import { useAuth } from "../context/AuthContext";
 import { storyApi, type Game, type UserProfile } from "../lib/api";
+import { STATIC_GAMES } from "../lib/staticData";
 import { colors, spacing, borderRadius, typography } from "../theme";
 
 const { width } = Dimensions.get("window");
@@ -25,7 +26,7 @@ const CARD_HEIGHT = CARD_WIDTH * 1.4;
 
 const GAME_IMAGES: Record<string, any> = {
   g_threeBrothers_01: require("../../assets/images/Gemini_Generated_Image_pahd7qpahd7qpahd.png"),
-  celebrity_daughter_hat: require("../../assets/images/Gemini_Generated_Image_x2ju71x2ju71x2ju.png"),
+  g_celebrityHats_02: require("../../assets/images/Gemini_Generated_Image_x2ju71x2ju71x2ju.png"),
 };
 
 const CARD_COLORS = [
@@ -40,6 +41,38 @@ const CARD_COLORS = [
 ];
 
 
+function LoadingScreen() {
+  const progress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(progress, {
+      toValue: 0.85,
+      duration: 2200,
+      useNativeDriver: false,
+    }).start();
+  }, [progress]);
+
+  return (
+    <View style={styles.loadingScreen}>
+      <Text style={styles.loadingTitle}>Puzzles</Text>
+      <View style={styles.progressBarTrack}>
+        <Animated.View
+          style={[
+            styles.progressBarFill,
+            {
+              width: progress.interpolate({
+                inputRange: [0, 1],
+                outputRange: ["0%", "100%"],
+              }),
+            },
+          ]}
+        />
+      </View>
+      <Text style={styles.loadingLabel}>Loading games...</Text>
+    </View>
+  );
+}
+
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
 export const HomeScreen: React.FC<Props> = ({ navigation }) => {
@@ -50,23 +83,29 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
 
   useEffect(() => {
-    if (authLoading || !user?.id) return;
+    if (authLoading) return;
 
     const loadGames = async () => {
       try {
         setLoading(true);
-        const [allGames, userGames, profile] = await Promise.all([
-          storyApi.getGames(),
+
+        if (!user?.id) {
+          // Guest: show static catalog without user-specific status
+          setGames(STATIC_GAMES);
+          return;
+        }
+
+        // Authenticated: merge server status (locked/completed) into games
+        const [userGames, profile] = await Promise.all([
           storyApi.getUserGames(user.id),
           storyApi.getUserProfile(user.id),
         ]);
 
-        // Merge per-user locked/completed status into game metadata
-        const merged = allGames.map((game) => {
+        const merged = STATIC_GAMES.map((game) => {
           const userStatus = userGames.find((s) => s.gameId === game.id);
           return {
             ...game,
-            status: userStatus?.locked ? "locked" as const : game.status,
+            status: userStatus?.locked ? ("locked" as const) : game.status,
             completed: userStatus?.completed ?? false,
           };
         });
@@ -75,10 +114,12 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
         setUserProfile(profile);
       } catch (err: any) {
         console.error("Failed to load games:", err);
+        setGames(STATIC_GAMES);
       } finally {
         setLoading(false);
       }
     };
+
     loadGames();
   }, [authLoading, user?.id]);
 
@@ -90,12 +131,30 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const handlePlay = () => {
     if (!selectedGame) return;
     setSelectedGame(null);
-    navigation.navigate("Game", { gameId: selectedGame.id, puzzleId: selectedGame.puzzleId });
+
+    if (!user) {
+      // Prompt login, passing game params so we land on the game after auth
+      navigation.navigate("Login", {
+        gameId: selectedGame.id,
+        puzzleId: selectedGame.puzzleId,
+      });
+      return;
+    }
+
+    navigation.navigate("Game", {
+      gameId: selectedGame.id,
+      puzzleId: selectedGame.puzzleId,
+    });
   };
 
   const renderCardInner = (item: Game, isLocked: boolean) => (
     <>
       {isLocked && <View style={styles.lockedOverlay} />}
+      {item.completed && (
+        <View style={styles.completedBadge}>
+          <Text style={styles.completedBadgeText}>✓</Text>
+        </View>
+      )}
       <View style={styles.cardCenter}>
         {isLocked && (
           <Text style={styles.lockIcon}>
@@ -147,6 +206,9 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
     );
   };
 
+  const playButtonLabel = !user
+    ? isZh ? "登录以游戏" : "Sign in to Play"
+    : isZh ? "开始" : "Play";
 
   return (
     <View style={styles.container}>
@@ -166,33 +228,48 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.modalContent}>
               <Text style={styles.modalGenre}>{selectedGame?.genre}</Text>
               <Text style={styles.modalIntro}>{selectedGame?.shortIntro}</Text>
-              <TouchableOpacity style={styles.modalPlayButton} onPress={handlePlay} activeOpacity={0.8}>
-                <Text style={styles.modalPlayText}>{isZh ? "开始" : "Play"}</Text>
+              <TouchableOpacity
+                style={styles.modalPlayButton}
+                onPress={handlePlay}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalPlayText}>{playButtonLabel}</Text>
               </TouchableOpacity>
             </View>
           </Pressable>
         </Pressable>
       </Modal>
+
       <View style={styles.header}>
         <Text style={styles.appTitle}>{isZh ? "谜题" : "Puzzles"}</Text>
-        {userProfile && (
-          <View style={styles.userLevelBadge}>
-            <Text style={styles.userLevelText}>LV{userProfile.level}</Text>
-          </View>
+        {user ? (
+          <>
+            {userProfile && (
+              <View style={styles.userLevelBadge}>
+                <Text style={styles.userLevelText}>LV{userProfile.level}</Text>
+              </View>
+            )}
+            <TouchableOpacity
+              style={styles.settingsButton}
+              onPress={() => navigation.navigate("Settings")}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.settingsIcon}>⚙️</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <TouchableOpacity
+            style={styles.loginButton}
+            onPress={() => navigation.navigate("Login")}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.loginButtonText}>{isZh ? "登录" : "Log In"}</Text>
+          </TouchableOpacity>
         )}
-        <TouchableOpacity
-          style={styles.settingsButton}
-          onPress={() => navigation.navigate("Settings")}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.settingsIcon}>⚙️</Text>
-        </TouchableOpacity>
       </View>
 
       {loading || authLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <LoadingScreen />
       ) : (
         <FlatList
           data={games}
@@ -258,6 +335,20 @@ const styles = StyleSheet.create({
   settingsIcon: {
     fontSize: 18,
   },
+  loginButton: {
+    position: "absolute",
+    right: spacing.lg,
+    top: spacing.xxl + spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary,
+  },
+  loginButtonText: {
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
+    color: "#fff",
+  },
   loadingContainer: {
     flex: 1,
     alignItems: "center",
@@ -283,25 +374,62 @@ const styles = StyleSheet.create({
   cardImage: {
     borderRadius: borderRadius.xl,
   },
+  loadingScreen: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.md,
+    paddingHorizontal: spacing.xxl,
+  },
+  loadingTitle: {
+    fontSize: typography.xxl,
+    fontWeight: "800",
+    color: colors.textPrimary,
+    letterSpacing: 1,
+    marginBottom: spacing.sm,
+  },
+  progressBarTrack: {
+    width: "100%",
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.surface,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    borderRadius: 3,
+    backgroundColor: colors.primary,
+  },
+  loadingLabel: {
+    fontSize: typography.sm,
+    color: colors.textSecondary,
+    letterSpacing: 0.3,
+  },
   lockedOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  completedBadge: {
+    position: "absolute",
+    top: spacing.sm,
+    right: spacing.sm,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.success,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
+  },
+  completedBadgeText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#fff",
   },
   cardCenter: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-  },
-  playButton: {
-    backgroundColor: colors.success,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.full,
-  },
-  playText: {
-    color: colors.textPrimary,
-    fontSize: typography.base,
-    fontWeight: typography.semibold,
   },
   lockIcon: {
     fontSize: 28,

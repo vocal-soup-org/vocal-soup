@@ -11,15 +11,33 @@ import {
   Platform,
   ScrollView,
 } from "react-native";
-import { signInWithEmail } from "../services/auth";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { RootStackParamList } from "../../App";
+import { signInWithEmail, signInWithGoogle } from "../services/auth";
 import { colors, spacing, borderRadius, typography, shadows } from "../theme";
 
-export function LoginScreen({ navigation }: any) {
+type Props = NativeStackScreenProps<RootStackParamList, "Login">;
+
+export function LoginScreen({ navigation, route }: Props) {
+  const { gameId, puzzleId } = route.params ?? {};
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  const handleLoginSuccess = () => {
+    if (gameId && puzzleId) {
+      navigation.reset({
+        index: 1,
+        routes: [{ name: "Home" }, { name: "Game", params: { gameId, puzzleId } }],
+      });
+    } else {
+      navigation.goBack();
+    }
+  };
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
@@ -30,12 +48,27 @@ export function LoginScreen({ navigation }: any) {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const { user, session } = await signInWithEmail(email.trim(), password);
-      console.log("Logged in:", user?.id, session?.access_token);
+      await signInWithEmail(email.trim(), password);
+      handleLoginSuccess();
     } catch (err: any) {
       setErrorMsg(err.message ?? "Login failed");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setGoogleLoading(true);
+    setErrorMsg(null);
+    try {
+      const result = await signInWithGoogle();
+      if (result) {
+        handleLoginSuccess();
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message ?? "Google sign-in failed");
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -48,12 +81,47 @@ export function LoginScreen({ navigation }: any) {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Back button */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.backText}>← Back</Text>
+        </TouchableOpacity>
+
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Welcome Back</Text>
           <Text style={styles.subtitle}>
-            Sign in to continue your puzzle adventure
+            {gameId
+              ? "Sign in to start playing"
+              : "Sign in to continue your puzzle adventure"}
           </Text>
+        </View>
+
+        {/* Google Sign In */}
+        <TouchableOpacity
+          style={[styles.googleButton, googleLoading && styles.buttonDisabled]}
+          onPress={handleGoogleLogin}
+          disabled={googleLoading || loading}
+          activeOpacity={0.8}
+        >
+          {googleLoading ? (
+            <ActivityIndicator color={colors.textSecondary} size="small" />
+          ) : (
+            <>
+              <Text style={styles.googleIcon}>G</Text>
+              <Text style={styles.googleButtonText}>Continue with Google</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        {/* Divider */}
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or</Text>
+          <View style={styles.dividerLine} />
         </View>
 
         {/* Form */}
@@ -106,7 +174,7 @@ export function LoginScreen({ navigation }: any) {
           <TouchableOpacity
             style={[styles.primaryButton, loading && styles.buttonDisabled]}
             onPress={handleLogin}
-            disabled={loading}
+            disabled={loading || googleLoading}
             activeOpacity={0.8}
           >
             {loading ? (
@@ -140,8 +208,17 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xxxl,
+    paddingTop: spacing.xxl,
     paddingBottom: spacing.xxl,
+  },
+  backButton: {
+    marginBottom: spacing.lg,
+    paddingVertical: spacing.sm,
+    alignSelf: "flex-start",
+  },
+  backText: {
+    color: colors.textMuted,
+    fontSize: typography.base,
   },
   header: {
     marginBottom: spacing.xxl,
@@ -156,6 +233,44 @@ const styles = StyleSheet.create({
     fontSize: typography.md,
     color: colors.textMuted,
     lineHeight: 22,
+  },
+  googleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    backgroundColor: colors.background,
+    borderWidth: 1.5,
+    borderColor: colors.borderDark,
+    paddingVertical: spacing.lg,
+    borderRadius: borderRadius.full,
+    marginBottom: spacing.lg,
+    ...shadows.sm,
+  },
+  googleIcon: {
+    fontSize: typography.lg,
+    fontWeight: typography.bold,
+    color: "#4285F4",
+  },
+  googleButtonText: {
+    color: colors.textSecondary,
+    fontSize: typography.md,
+    fontWeight: typography.medium,
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  dividerText: {
+    color: colors.textDim,
+    fontSize: typography.sm,
   },
   form: {
     gap: spacing.lg,

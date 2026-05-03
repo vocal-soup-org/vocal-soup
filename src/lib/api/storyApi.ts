@@ -60,12 +60,6 @@ export type TranscribeResponse = {
 // API functions
 export const storyApi = {
   /**
-   * Fetch all games for the catalog (Home Screen)
-   */
-  getGames: () =>
-    api.get<Game[]>("/v1/games"),
-
-  /**
    * Fetch per-user locked/completed status for all games
    */
   getUserGames: (userId: string) =>
@@ -76,12 +70,6 @@ export const storyApi = {
    */
   getUserProfile: (userId: string) =>
     api.get<UserProfile>(`/v1/users/${userId}`),
-
-  /**
-   * Fetch full puzzle content (Challenge Screen)
-   */
-  getPuzzle: (puzzleId: string) =>
-    api.get<PuzzleDetail>(`/v1/puzzles/${puzzleId}`),
 
   /**
    * Start a new game session

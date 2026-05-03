@@ -5,10 +5,10 @@ import { View, ActivityIndicator } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
+import * as WebBrowser from "expo-web-browser";
 
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { GameScreen } from "./src/screens/GameScreen";
-import { AuthLandingScreen } from "./src/screens/AuthLandingScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { SignupScreen } from "./src/screens/SignupScreen";
 import { StoryScreen } from "./src/screens/StoryScreen";
@@ -16,100 +16,64 @@ import SettingsScreen from "./src/screens/UserSettingScreen";
 
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 
+// Required for OAuth redirect completion in Expo
+WebBrowser.maybeCompleteAuthSession();
+
 export type RootStackParamList = {
-  AuthLanding: undefined;
-  Login: undefined;
-  Signup: undefined;
   Home: undefined;
-  Settings: undefined; // <-- added
+  Settings: undefined;
   Game: { gameId: string; puzzleId: string };
   Story: {
     finalStory: string;
     openingText?: string;
     storyChunks?: string[];
   };
+  Login: { gameId?: string; puzzleId?: string } | undefined;
+  Signup: undefined;
 };
 
-const AuthStack = createNativeStackNavigator<RootStackParamList>();
-const AppStack = createNativeStackNavigator<RootStackParamList>();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const commonScreenOptions = {
   headerShown: false,
   contentStyle: { backgroundColor: "#FFFFFF" },
 };
 
-// Screens shown when NOT logged in
-function AuthStackNavigator() {
-  return (
-    <AuthStack.Navigator
-      initialRouteName="AuthLanding"
-      screenOptions={commonScreenOptions}
-    >
-      <AuthStack.Screen
-        name="AuthLanding"
-        component={AuthLandingScreen}
-        options={{ title: "Welcome" }}
-      />
-      <AuthStack.Screen
-        name="Login"
-        component={LoginScreen}
-        options={{ title: "Log In" }}
-      />
-      <AuthStack.Screen
-        name="Signup"
-        component={SignupScreen}
-        options={{ title: "Sign Up" }}
-      />
-    </AuthStack.Navigator>
-  );
-}
-
-// Screens shown when LOGGED IN
-function AppStackNavigator() {
-  return (
-    <AppStack.Navigator
-      initialRouteName="Home"
-      screenOptions={commonScreenOptions}
-    >
-      <AppStack.Screen
-        name="Home"
-        component={HomeScreen}
-      />
-      <AppStack.Screen name="Game" component={GameScreen} />
-      <AppStack.Screen name="Story" component={StoryScreen} />
-      <AppStack.Screen name="Settings" component={SettingsScreen} />
-    </AppStack.Navigator>
-  );
-}
-
-// Chooses which stack to render based on auth state
 function RootNavigator() {
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
 
   if (loading) {
-    // Simple loading screen while we check Supabase session
     return (
       <View
         style={{
           flex: 1,
-          backgroundColor: "#050816",
+          backgroundColor: "#FFFFFF",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <ActivityIndicator size="large" color="#fff" />
+        <ActivityIndicator size="large" color="#F97316" />
       </View>
     );
   }
 
-  return user ? <AppStackNavigator /> : <AuthStackNavigator />;
+  return (
+    <Stack.Navigator initialRouteName="Home" screenOptions={commonScreenOptions}>
+      <Stack.Screen name="Home" component={HomeScreen} />
+      <Stack.Screen name="Game" component={GameScreen} />
+      <Stack.Screen name="Story" component={StoryScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Signup" component={SignupScreen} />
+    </Stack.Navigator>
+  );
 }
 
 export default function App() {
   return (
     <AuthProvider>
       <NavigationContainer>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <RootNavigator />
       </NavigationContainer>
     </AuthProvider>

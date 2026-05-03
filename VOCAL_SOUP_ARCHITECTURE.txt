@@ -1,0 +1,208 @@
+================================================================================
+  VOCAL SOUP — FRONTEND ARCHITECTURE SUMMARY
+================================================================================
+
+OVERVIEW
+--------
+Vocal Soup is a voice-driven lateral-thinking puzzle game (海龟汤 / Turtle Soup)
+built with React Native (Expo SDK 54). Players browse a catalog of mystery
+puzzles, ask yes/no questions by voice, and piece together the hidden story.
+The app supports English and Chinese, tracks player progress across sessions,
+and uses AI on the backend to transcribe voice input and evaluate guesses.
+
+
+TECH STACK
+----------
+  Runtime         React Native 0.81.5 via Expo ~54.0.25 (managed workflow)
+  Language        TypeScript ~5.9
+  Navigation      React Navigation v7 (native-stack)
+  Auth            Supabase JS v2 (email/password + Google OAuth)
+  Session store   @react-native-async-storage/async-storage
+  Audio           expo-av (recording)
+  OAuth           expo-auth-session + expo-web-browser
+  Backend API     Custom REST API at https://backend-rxsn.onrender.com
+  Design tokens   src/theme.ts (light theme, orange #F97316 primary)
+
+
+FILE STRUCTURE
+--------------
+  App.tsx                           Root: providers, navigation, loading gate
+  app.json                          Expo config (scheme: "vocal-soup" for OAuth)
+
+  src/
+  ├── context/
+  │   └── AuthContext.tsx           Global auth + language state (React Context)
+  │
+  ├── screens/
+  │   ├── HomeScreen.tsx            Game catalog grid (guest + authenticated)
+  │   ├── GameScreen.tsx            Active puzzle: voice input, hints, progress
+  │   ├── LoginScreen.tsx           Email/password + Google Sign-In
+  │   ├── SignupScreen.tsx          Account creation with language selection
+  │   ├── StoryScreen.tsx           Post-completion story reveal
+  │   ├── UserSettingScreen.tsx     Language toggle, account info, logout
+  │   └── AuthLandingScreen.tsx     Legacy landing page (not in nav stack)
+  │
+  ├── services/
+  │   ├── auth.ts                   signInWithEmail, signUpWithEmail,
+  │   │                             signInWithGoogle, signOut, updateUserLanguage
+  │   └── data.ts                   (misc data helpers)
+  │
+  ├── lib/
+  │   ├── supabaseClient.ts         Supabase client (AsyncStorage session)
+  │   ├── apiClient.ts              /me endpoint helper
+  │   ├── staticData.ts             STATIC_GAMES + STATIC_PUZZLES (bundled)
+  │   └── api/
+  │       ├── client.ts             Centralized fetch client (timeout, errors)
+  │       ├── storyApi.ts           getUserGames, getUserProfile, start/hint/
+  │       │                         evaluate/transcribe endpoints
+  │       ├── chatApi.ts            Chat endpoint
+  │       └── index.ts              Re-exports
+  │
+  ├── data/
+  │   ├── puzzles.ts                Local puzzle definitions
+  │   └── samplePuzzle.ts
+  │
+  └── theme.ts                      Colors, spacing, typography, shadows,
+                                    border radii, common component styles
+
+
+NAVIGATION
+----------
+Single React Navigation native-stack. Home is always the initial route —
+no conditional stack split based on auth state.
+
+  NavigationContainer
+  └── Stack.Navigator (initialRoute: Home)
+      ├── Home         Game catalog (guests + authenticated users)
+      ├── Game         Active puzzle session
+      ├── Story        Post-puzzle story screen
+      ├── Settings     Account / language settings (authenticated)
+      ├── Login        Email + Google sign-in (accepts optional gameId/puzzleId)
+      └── Signup       Account creation
+
+Navigation types defined in App.tsx as RootStackParamList.
+Login accepts optional { gameId, puzzleId } params; after login it navigates
+directly to Game if params were provided, otherwise goBack() to Home.
+
+
+AUTH FLOW
+---------
+AuthContext (src/context/AuthContext.tsx) wraps the entire app and exposes:
+  { user, loading, language, isZh, setLanguage }
+
+On startup:
+  1. supabase.auth.getSession() restores session from AsyncStorage
+  2. onAuthStateChange() listener kept open for real-time updates
+  3. Language loaded from user_metadata.language (or /me API fallback)
+
+Guest access:
+  Users land directly on HomeScreen without logging in.
+  Tapping "Play" on a game navigates to LoginScreen with the target game
+  params; after login the app navigates straight into the game.
+
+Google OAuth (expo-auth-session):
+  makeRedirectUri({ scheme: "vocal-soup" })
+  → supabase.auth.signInWithOAuth (skipBrowserRedirect: true)
+  → WebBrowser.openAuthSessionAsync
+  → supabase.auth.exchangeCodeForSession
+
+  Requires Google provider enabled in Supabase dashboard and a redirect URL
+  of "vocal-soup://" registered in both Supabase and Google Cloud Console.
+
+
+KEY SCREENS
+-----------
+
+HomeScreen
+  - Shows 2-column game card grid
+  - Guests: loads STATIC_GAMES directly (no API call)
+  - Authenticated: merges server-side locked/completed status onto static data
+  - Header: "Log In" button for guests; level badge + settings gear for users
+  - Game card modal: "Sign in to Play" (guests) or "Play" (authenticated)
+  - Cards support background images, lock overlays, completed badges
+
+GameScreen
+  - Receives { gameId, puzzleId } nav params
+  - Displays puzzle title/content (EN or ZH variant)
+  - Voice recording via expo-av; audio uploaded to /v1/games/transcribe
+  - Backend returns { transcript, evaluation, completion, leveledUp, newLevel }
+  - Progress bar (0–100%) increments on correct guesses
+  - Dynamic AI hints via /v1/games/hint
+  - Solution reveal toggle
+  - Modals: Puzzle Solved (100% completion), Level Up
+
+LoginScreen
+  - Google Sign-In button (top) + email/password form (below divider)
+  - Back button (← Back) for when reached from HomeScreen play gate
+  - Subtitle changes to "Sign in to start playing" when gameId param present
+  - After login: reset stack to [Home, Game] if game params provided
+
+StoryScreen
+  - Displays AI-generated narrative after puzzle completion
+  - Receives { finalStory, openingText, storyChunks } nav params
+
+UserSettingScreen
+  - Language toggle (EN / ZH) saved to Supabase user_metadata
+  - Account section: email display, member badge
+  - Log Out with confirmation alert
+
+
+STATE MANAGEMENT
+----------------
+No Redux or Zustand. All state is local React state (useState/useRef) per
+screen, with one shared React Context (AuthContext) for auth + language.
+
+  AuthContext   →  user, loading, language, isZh, setLanguage
+  HomeScreen    →  games[], userProfile, loading, selectedGame
+  GameScreen    →  recording, transcript, evaluation, completion, hints, modals
+  LoginScreen   →  email, password, loading, googleLoading, errorMsg
+
+
+BACKEND API
+-----------
+Base URL: https://backend-rxsn.onrender.com
+All requests go through src/lib/api/client.ts (30s timeout, AbortController).
+
+  GET  /v1/users/:userId/games     → UserGameStatus[] (locked, completed)
+  GET  /v1/users/:userId           → UserProfile { userId, level }
+  POST /v1/games/start             → { sessionId }
+  POST /v1/games/hint              → { hint: string }
+  POST /v1/games/evaluate          → EvaluateResponse
+  POST /v1/games/transcribe        → TranscribeResponse (FormData, 60s timeout)
+  GET  /me                         → { language } (language preference fallback)
+
+
+DATA STRATEGY
+-------------
+Game catalog and puzzle content are bundled as static data (src/lib/staticData.ts)
+to avoid loading delays. Server-side data (per-user lock/completion status,
+dynamic hints, voice evaluation) is fetched at runtime. This means the app
+renders the game list instantly for guests and overlays user progress for
+authenticated users.
+
+
+THEMING
+-------
+All design tokens in src/theme.ts. Light theme (white background).
+
+  Primary     #F97316  (orange)
+  Background  #FFFFFF
+  Surface     #F9FAFB
+  Text        #111827 / #6B7280 (muted) / #9CA3AF (dim)
+  Success     #10B981
+  Error       #F87171
+  Game cards  Dark jewel-tone backgrounds (#1B3A2D, #2A1F3D, etc.)
+
+Typography scale: xs(11) → sm(12) → base(14) → md(16) → lg(18) →
+                  xl(20) → xxl(24) → xxxl(32) → display(36)
+
+
+LOCALIZATION
+------------
+Two languages: English ("en") and Chinese Simplified ("zh").
+isZh boolean from AuthContext drives inline ternaries throughout all screens.
+Language preference stored in Supabase user_metadata.language and persisted
+across sessions. Puzzle content has parallel _en / _zh field variants.
+
+
+================================================================================

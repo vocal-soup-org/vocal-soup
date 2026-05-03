@@ -2,6 +2,7 @@
   "expo": {
     "name": "vocal-soup",
     "slug": "vocal-soup",
+    "scheme": "vocal-soup",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -29,6 +30,9 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-web-browser"
+    ]
   }
 }

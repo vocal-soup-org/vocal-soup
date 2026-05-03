@@ -1,13 +1,14 @@
+import * as WebBrowser from "expo-web-browser";
+import * as AuthSession from "expo-auth-session";
 import { supabase } from "../lib/supabaseClient";
 
-// src/services/auth.ts (or wherever your auth functions live)
+// src/services/auth.ts
 
 export async function signUpWithEmail(
   email: string,
   password: string,
   metadata: Record<string, any> | undefined = undefined
 ) {
-  // Pass metadata into the `options.data` field so it gets stored on auth.users.raw_user_meta_data
   const payload: any = {
     email,
     password,
@@ -20,19 +21,17 @@ export async function signUpWithEmail(
   const { data, error } = await supabase.auth.signUp(payload);
 
   if (error) throw error;
-  return data; // contains user + session depending on email confirmation settings
+  return data;
 }
 
 export async function updateUserLanguage(lang: "en" | "zh") {
-  // Supabase JS v2: updateUser accepts { data: {...} }
   const { data, error } = await supabase.auth.updateUser({
     data: { language: lang },
   });
 
   if (error) throw error;
-  return data; // updated user info
+  return data;
 }
-
 
 export async function signInWithEmail(email: string, password: string) {
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -41,7 +40,33 @@ export async function signInWithEmail(email: string, password: string) {
   });
 
   if (error) throw error;
-  return data; // { user, session }
+  return data;
+}
+
+export async function signInWithGoogle() {
+  const redirectTo = AuthSession.makeRedirectUri({ scheme: "vocal-soup" });
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo,
+      skipBrowserRedirect: true,
+    },
+  });
+
+  if (error) throw error;
+  if (!data.url) throw new Error("No OAuth URL returned from Supabase");
+
+  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+
+  if (result.type === "success") {
+    const { data: sessionData, error: sessionError } =
+      await supabase.auth.exchangeCodeForSession(result.url);
+    if (sessionError) throw sessionError;
+    return sessionData;
+  }
+
+  return null;
 }
 
 export async function signOut() {
