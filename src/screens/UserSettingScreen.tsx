@@ -13,6 +13,7 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../../App";
 import { updateUserLanguage, signOut } from "../services/auth";
 import { useAuth } from "../context/AuthContext";
+import { storyApi } from "../lib/api";
 import { colors, spacing, borderRadius, typography, fonts, shadows } from "../theme";
 import { CheckIcon, ChevronLeftIcon } from "../icons";
 
@@ -30,6 +31,9 @@ export default function SettingsScreen({ navigation }: Props) {
     setError(null);
     try {
       await updateUserLanguage(lang);
+      if (user?.id) {
+        await storyApi.updateLanguage(user.id, lang);
+      }
       setLanguage(lang);
       Alert.alert(
         lang === "zh" ? "已保存" : "Saved",

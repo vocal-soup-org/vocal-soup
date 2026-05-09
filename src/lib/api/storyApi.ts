@@ -28,6 +28,7 @@ export type UserGameStatus = {
 export type UserProfile = {
   userId: string;
   level: number;
+  language?: string;
 };
 
 // Full puzzle content (static, fetched when entering a game)
@@ -43,6 +44,7 @@ export type PuzzleDetail = {
 
 export type StartSessionResponse = {
   sessionId: string;
+  puzzle: PuzzleDetail;
 };
 
 export type EvaluateResponse = {
@@ -85,8 +87,14 @@ export const storyApi = {
   /**
    * Start a new game session
    */
-  startSession: (gameId: string, userId: string, language: string = "en") =>
-    api.post<StartSessionResponse>("/v1/games/start", { gameId, userId, language }),
+  startSession: (gameId: string, userId: string) =>
+    api.post<StartSessionResponse>("/v1/games/start", { gameId, userId }),
+
+  /**
+   * Persist the user's language selection to the backend profile
+   */
+  updateLanguage: (userId: string, language: string) =>
+    api.patch<UserProfile>(`/v1/users/${userId}/language`, { language }),
 
   /**
    * Fetch a dynamically generated hint for the current session

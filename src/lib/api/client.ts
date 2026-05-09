@@ -73,7 +73,7 @@ type RequestOptions = {
 
 // Base request function with timeout support
 async function request<T>(
-  method: "GET" | "POST" | "PUT" | "DELETE",
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
   path: string,
   options?: {
     body?: Record<string, unknown>;
@@ -173,6 +173,9 @@ export const api = {
 
   put: <T>(path: string, body?: Record<string, unknown>, options?: RequestOptions) =>
     request<T>("PUT", path, { ...options, body }),
+
+  patch: <T>(path: string, body?: Record<string, unknown>, options?: RequestOptions) =>
+    request<T>("PATCH", path, { ...options, body }),
 
   delete: <T>(path: string, options?: RequestOptions) =>
     request<T>("DELETE", path, options),

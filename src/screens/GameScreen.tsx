@@ -30,7 +30,7 @@ import {
 type Props = NativeStackScreenProps<RootStackParamList, "Game">;
 
 export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
-  const { gameId, puzzleId } = route.params;
+  const { gameId } = route.params;
   const { user, loading: authLoading, language, isZh } = useAuth();
   const currentUserId = user?.id;
 
@@ -76,18 +76,6 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
   }, []);
 
   useEffect(() => {
-    if (!puzzleId) return;
-    (async () => {
-      try {
-        const puzzle = await storyApi.getPuzzle(puzzleId, language);
-        setPuzzleData(puzzle);
-      } catch (error) {
-        console.error("Error fetching puzzle:", error);
-      }
-    })();
-  }, [puzzleId, language]);
-
-  useEffect(() => {
     if (!authLoading && currentUserId && !sessionId) {
       startNewSession(currentUserId);
     } else if (!authLoading && !currentUserId) {
@@ -98,8 +86,9 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
   const startNewSession = async (userId: string) => {
     setIsLoadingSession(true);
     try {
-      const data = await storyApi.startSession(gameId, userId, language);
+      const data = await storyApi.startSession(gameId, userId);
       setSessionId(data.sessionId);
+      setPuzzleData(data.puzzle);
     } catch (error) {
       if (error instanceof ApiError) {
         console.error(`API Error (${error.code}):`, error.message);
@@ -602,10 +591,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   puzzleContent: {
-    fontSize: typography.lg,
-    fontFamily: fonts.serif,
+    fontSize: 17,
+    fontFamily: fonts.sans,
     color: colors.textSecondary,
-    lineHeight: 28,
+    lineHeight: 27,
+    letterSpacing: 0.1,
   },
   toggleSection: { marginBottom: spacing.lg },
   toggleButton: {
