@@ -287,7 +287,7 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.eyebrow}>CASE FILE</Text>
+        <Text style={styles.eyebrow}>{isZh ? "案件档案" : "CASE FILE"}</Text>
         <Text style={styles.title}>{localizedTitle}</Text>
 
         <View style={styles.progressSection}>
@@ -343,7 +343,7 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
             <Text style={[styles.toggleButtonText, showHint && styles.toggleButtonTextActive]}>
               {showHint
                 ? isZh ? "隐藏提示" : "Hide hint"
-                : isZh ? "A small hint" : "A small hint"}
+                : isZh ? "显示提示" : "A small hint"}
             </Text>
           </TouchableOpacity>
 
