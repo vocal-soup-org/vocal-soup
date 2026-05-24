@@ -14,6 +14,7 @@ export const STATIC_GAMES: Game[] = [
     shortIntro: "A dark secret behind a mother's gift",
     shortIntroZh: "母亲的礼物背后，藏着一个黑暗的秘密",
     puzzleId: "celebrity_daughter_hat",
+    experience: 50,
   },
   {
     id: "game_three_brothers",
@@ -25,6 +26,7 @@ export const STATIC_GAMES: Game[] = [
     shortIntro: "Horror story about three brothers",
     shortIntroZh: "三兄弟之间的恐怖故事",
     puzzleId: "three_brothers",
+    experience: 50,
   },
   {
     id: "game_1778255135026",
@@ -36,19 +38,21 @@ export const STATIC_GAMES: Game[] = [
     shortIntro: "A child's attempt to impress his father leads to a gruesome reality.",
     shortIntroZh: "孩子为了让父亲刮目相看，却铸成了一场残忍的悲剧。",
     puzzleId: "puzzle_1778255135026",
+    experience: 100,
   },
   {
     id: "game_blind_man",
     name: "The Blind Man",
     genre: "Dark Thriller",
     genreZh: "黑暗惊悚",
-    level: 6,
+    level: 3,
     status: "locked",
     shortIntro:
       "A birthday song followed by a round of applause. To anyone else, it's a celebration. To him, it's the sound of a deadly betrayal.",
     shortIntroZh:
       "生日歌响起，掌声随之而来。对旁人而言，这是欢庆；对他而言，这是背叛的回声。",
     puzzleId: "blind_man",
+    experience: 200,
   },
 ];
 

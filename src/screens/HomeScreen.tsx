@@ -1,5 +1,5 @@
 // src/screens/HomeScreen.tsx
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -15,9 +15,11 @@ import {
   Pressable,
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useFocusEffect } from "@react-navigation/native";
 import { RootStackParamList } from "../../App";
 import { useAuth } from "../context/AuthContext";
 import { storyApi, type Game, type UserProfile } from "../lib/api";
+import { STATIC_GAMES } from "../lib/staticData";
 import { colors, spacing, borderRadius, typography, fonts, shadows } from "../theme";
 import { LockIcon, ReticleIcon, SettingsIcon } from "../icons";
 
@@ -32,6 +34,13 @@ const GAME_IMAGES: Record<string, any> = {
 
 // CIPHER: all cards share one near-black; case art differentiates.
 const CARD_BG = "#15151E";
+
+// Cumulative XP required to reach each level
+const XP_THRESHOLDS: Record<number, number> = { 2: 100, 3: 300, 4: 600, 5: 1000 };
+
+function getNextLevelThreshold(level: number): number | null {
+  return XP_THRESHOLDS[level + 1] ?? null;
+}
 
 function LoadingScreen() {
   const progress = useRef(new Animated.Value(0)).current;
@@ -74,46 +83,52 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
 
-  useEffect(() => {
-    if (authLoading) return;
+  useFocusEffect(
+    useCallback(() => {
+      if (authLoading) return;
 
-    const loadGames = async () => {
-      try {
-        setLoading(true);
+      let cancelled = false;
 
-        if (!user?.id) {
-          const allGames = await storyApi.getGames();
-          setGames(allGames);
-          return;
+      const loadGames = async () => {
+        try {
+          setLoading(true);
+
+          if (!user?.id) {
+            if (!cancelled) setGames(STATIC_GAMES);
+            return;
+          }
+
+          const [allGames, userGames, profile] = await Promise.all([
+            storyApi.getGames(),
+            storyApi.getUserGames(user.id),
+            storyApi.getUserProfile(user.id),
+          ]);
+
+          const merged = allGames.map((game) => {
+            const userStatus = userGames.find((s) => s.gameId === game.id);
+            return {
+              ...game,
+              status: userStatus?.locked ? ("locked" as const) : game.status,
+              completed: userStatus?.completed ?? false,
+            };
+          });
+
+          if (!cancelled) {
+            setGames(merged);
+            setUserProfile(profile);
+          }
+        } catch (err: any) {
+          console.error("Failed to load games:", err);
+          if (!cancelled) setGames([]);
+        } finally {
+          if (!cancelled) setLoading(false);
         }
+      };
 
-        const [allGames, userGames, profile] = await Promise.all([
-          storyApi.getGames(),
-          storyApi.getUserGames(user.id),
-          storyApi.getUserProfile(user.id),
-        ]);
-
-        const merged = allGames.map((game) => {
-          const userStatus = userGames.find((s) => s.gameId === game.id);
-          return {
-            ...game,
-            status: userStatus?.locked ? ("locked" as const) : game.status,
-            completed: userStatus?.completed ?? false,
-          };
-        });
-
-        setGames(merged);
-        setUserProfile(profile);
-      } catch (err: any) {
-        console.error("Failed to load games:", err);
-        setGames([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadGames();
-  }, [authLoading, user?.id]);
+      loadGames();
+      return () => { cancelled = true; };
+    }, [authLoading, user?.id])
+  );
 
   const handleCardPress = (item: Game) => {
     if (item.status !== "available" || !item.puzzleId) return;
@@ -162,9 +177,14 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.genreText} numberOfLines={1}>
             {isZh && item.genreZh ? item.genreZh : item.genre}
           </Text>
-          <Text style={styles.introText} numberOfLines={1}>
-            {isZh && item.shortIntroZh ? item.shortIntroZh : item.shortIntro}
-          </Text>
+          <View style={styles.cardMetaBottom}>
+            <Text style={styles.introText} numberOfLines={1}>
+              {isZh && item.shortIntroZh ? item.shortIntroZh : item.shortIntro}
+            </Text>
+            {item.experience != null && (
+              <Text style={styles.cardXpText}>+{item.experience}</Text>
+            )}
+          </View>
         </View>
       </View>
     </>
@@ -256,6 +276,28 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
         )}
       </View>
+
+      {user && userProfile && (() => {
+        const nextThreshold = getNextLevelThreshold(userProfile.level);
+        if (nextThreshold == null) return null;
+        const xpPercent = Math.min((userProfile.experience / nextThreshold) * 100, 100);
+        const xpToNext = nextThreshold - userProfile.experience;
+        return (
+          <View style={styles.xpSection}>
+            <View style={styles.xpRow}>
+              <Text style={styles.xpBarLabel}>
+                {userProfile.experience} / {nextThreshold} XP
+              </Text>
+              <Text style={styles.xpNextLabel}>
+                {xpToNext > 0 ? `${xpToNext} to next level` : "Level up!"}
+              </Text>
+            </View>
+            <View style={styles.xpBarTrack}>
+              <View style={[styles.xpBarFill, { width: `${xpPercent}%` as any }]} />
+            </View>
+          </View>
+        );
+      })()}
 
       {loading || authLoading ? (
         <LoadingScreen />
@@ -427,6 +469,14 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   cardMeta: { flex: 1, gap: 2 },
+  cardMetaBottom: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  cardXpText: {
+    fontSize: typography.xs,
+    fontFamily: fonts.mono,
+    color: colors.primary,
+    opacity: 0.7,
+    flexShrink: 0,
+  },
   genreText: {
     fontSize: typography.xs,
     fontFamily: fonts.mono,
@@ -438,6 +488,40 @@ const styles = StyleSheet.create({
     fontSize: typography.xs,
     fontFamily: fonts.serif,
     color: "rgba(245,245,240,0.55)",
+  },
+  xpSection: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  xpRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.xs,
+  },
+  xpBarLabel: {
+    fontSize: typography.xs,
+    fontFamily: fonts.mono,
+    color: colors.primary,
+    letterSpacing: 1,
+  },
+  xpNextLabel: {
+    fontSize: typography.xs,
+    fontFamily: fonts.mono,
+    color: colors.textMuted,
+    letterSpacing: 0.5,
+  },
+  xpBarTrack: {
+    width: "100%",
+    height: 3,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surfaceLight,
+    overflow: "hidden",
+  },
+  xpBarFill: {
+    height: "100%",
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary,
   },
   modalBackdrop: {
     flex: 1,

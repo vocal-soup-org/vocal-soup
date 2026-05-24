@@ -41,6 +41,7 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
   const [puzzleSolved, setPuzzleSolved] = useState(false);
   const [leveledUp, setLeveledUp] = useState(false);
   const [newLevel, setNewLevel] = useState<number | null>(null);
+  const [xpGained, setXpGained] = useState<number | null>(null);
   const [showSolution, setShowSolution] = useState(false);
   const [evaluationResult, setEvaluationResult] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -171,6 +172,9 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
       setEvaluationResult(data.evaluation);
       setCompletionPercent(data.completion * 100);
       if (data.completion === 1) {
+        if (data.xpGained != null && data.xpGained > 0) {
+          setXpGained(data.xpGained);
+        }
         setPuzzleSolved(true);
       }
       if (data.leveledUp && data.newLevel != null) {
@@ -415,6 +419,9 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
             <Text style={styles.overlaySubtitle}>
               {isZh ? "你看穿了。" : "You saw it."}
             </Text>
+            {xpGained != null && xpGained > 0 && (
+              <Text style={styles.xpRewardText}>+{xpGained} XP</Text>
+            )}
             <TouchableOpacity
               style={styles.overlayButton}
               onPress={() => { setPuzzleSolved(false); navigation.navigate("Home"); }}
@@ -437,6 +444,9 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
             <Text style={styles.overlaySubtitle}>
               {isZh ? `等级 ${newLevel}` : `Level ${newLevel}`}
             </Text>
+            {xpGained != null && xpGained > 0 && (
+              <Text style={styles.xpRewardText}>+{xpGained} XP</Text>
+            )}
             <TouchableOpacity
               style={styles.overlayButton}
               onPress={() => setLeveledUp(false)}
@@ -755,6 +765,12 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: "center",
     letterSpacing: 1.5,
+  },
+  xpRewardText: {
+    fontSize: typography.lg,
+    fontFamily: fonts.mono,
+    color: colors.primary,
+    letterSpacing: 2,
   },
   overlayButton: {
     marginTop: spacing.sm,

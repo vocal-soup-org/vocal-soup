@@ -17,17 +17,20 @@ export type Game = {
   backgroundPicture?: string | null;
   progress?: number;
   completed?: boolean;
+  experience?: number;
 };
 
 export type UserGameStatus = {
   gameId: string;
   locked: boolean;
   completed: boolean;
+  experience?: number;
 };
 
 export type UserProfile = {
   userId: string;
   level: number;
+  experience: number;
   language?: string;
 };
 
@@ -52,6 +55,7 @@ export type EvaluateResponse = {
   completion: number;
   leveledUp?: boolean;
   newLevel?: number;
+  xpGained?: number;
 };
 
 export type TranscribeResponse = {
@@ -60,6 +64,7 @@ export type TranscribeResponse = {
   completion: number;
   leveledUp?: boolean;
   newLevel?: number;
+  xpGained?: number;
 };
 
 // API functions
