@@ -30,17 +30,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Helper to get language from user metadata or fetchMe as fallback
   const loadLanguage = async (user: any) => {
-    // First try user_metadata (no extra API call needed)
+    // 1. Try cached session user_metadata (fastest, no extra call)
     const metaLanguage = user?.user_metadata?.language as Language | undefined;
     if (metaLanguage) {
       setLanguage(metaLanguage);
       return;
     }
 
-    // Fallback to fetchMe if metadata doesn't have language
+    // 2. Cached session may be stale — fetch fresh user from Supabase server
+    try {
+      const { data: { user: freshUser } } = await supabase.auth.getUser();
+      const freshLang = freshUser?.user_metadata?.language as Language | undefined;
+      if (freshLang) {
+        setLanguage(freshLang);
+        return;
+      }
+    } catch {}
+
+    // 3. Last resort: backend profile (stores language set via Settings)
     try {
       const profile = await fetchMe() as { language?: Language };
-      setLanguage(profile.language ?? "en");
+      if (profile.language) {
+        setLanguage(profile.language);
+      }
     } catch (err) {
       console.error("Failed to load language preference:", err);
     }
