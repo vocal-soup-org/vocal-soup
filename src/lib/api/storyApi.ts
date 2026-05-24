@@ -98,8 +98,8 @@ export const storyApi = {
   /**
    * Start a new game session
    */
-  startSession: (gameId: string, userId: string) =>
-    api.post<StartSessionResponse>("/v1/games/start", { gameId, userId }),
+  startSession: (gameId: string, userId: string, language: string = "en") =>
+    api.post<StartSessionResponse>("/v1/games/start", { gameId, userId, language }),
 
   /**
    * Persist the user's language selection to the backend profile

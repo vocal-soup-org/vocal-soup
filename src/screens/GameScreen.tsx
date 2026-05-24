@@ -87,7 +87,7 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
   const startNewSession = async (userId: string) => {
     setIsLoadingSession(true);
     try {
-      const data = await storyApi.startSession(gameId, userId);
+      const data = await storyApi.startSession(gameId, userId, language);
       setSessionId(data.sessionId);
       setPuzzleData(data.puzzle);
     } catch (error) {
