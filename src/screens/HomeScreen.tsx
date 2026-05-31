@@ -77,7 +77,7 @@ function LoadingScreen() {
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
 export const HomeScreen: React.FC<Props> = ({ navigation }) => {
-  const { user, loading: authLoading, isZh } = useAuth();
+  const { user, loading: authLoading, language, isZh } = useAuth();
   const [games, setGames] = useState<Game[]>([]);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,7 +99,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           }
 
           const [allGames, userGames, profile] = await Promise.all([
-            storyApi.getGames(),
+            storyApi.getGames(language),
             storyApi.getUserGames(user.id),
             storyApi.getUserProfile(user.id),
           ]);
@@ -127,7 +127,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
       loadGames();
       return () => { cancelled = true; };
-    }, [authLoading, user?.id])
+    }, [authLoading, user?.id, language])
   );
 
   const handleCardPress = (item: Game) => {
