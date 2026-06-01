@@ -76,13 +76,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null);
 
-      if (session?.user) {
-        await loadLanguage(session.user);
-      } else {
-        setLanguage("en"); // Reset to default when logged out
+      if (event === "SIGNED_IN" || event === "USER_UPDATED") {
+        if (session?.user) {
+          await loadLanguage(session.user);
+        }
+      } else if (event === "SIGNED_OUT") {
+        setLanguage("en");
       }
     });
 

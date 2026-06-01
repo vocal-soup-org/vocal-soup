@@ -78,8 +78,8 @@ export const storyApi = {
   /**
    * Fetch per-user locked/completed status for all games
    */
-  getUserGames: (userId: string) =>
-    api.get<UserGameStatus[]>(`/v1/users/${userId}/games`),
+  getUserGames: (userId: string, language: string = "en") =>
+    api.get<UserGameStatus[]>(`/v1/users/${userId}/games${language !== "en" ? `?lang=${language}` : ""}`),
 
   /**
    * Fetch user profile (level, etc.)

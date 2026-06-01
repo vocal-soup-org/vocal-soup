@@ -1,5 +1,5 @@
 // src/screens/HomeScreen.tsx
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import {
   Pressable,
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useFocusEffect } from "@react-navigation/native";
+import { useIsFocused } from "@react-navigation/native";
 import { RootStackParamList } from "../../App";
 import { useAuth } from "../context/AuthContext";
 import { storyApi, type Game, type UserProfile } from "../lib/api";
@@ -83,52 +83,55 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (authLoading) return;
+  const isFocused = useIsFocused();
+  const languageRef = useRef(language);
+  useEffect(() => { languageRef.current = language; }, [language]);
 
-      let cancelled = false;
+  useEffect(() => {
+    if (authLoading || !isFocused) return;
 
-      const loadGames = async () => {
-        try {
-          setLoading(true);
+    let cancelled = false;
+    const lang = languageRef.current;
 
-          if (!user?.id) {
-            if (!cancelled) setGames(STATIC_GAMES);
-            return;
-          }
+    const loadGames = async () => {
+      try {
+        setLoading(true);
 
-          const [allGames, userGames, profile] = await Promise.all([
-            storyApi.getGames(language),
-            storyApi.getUserGames(user.id),
-            storyApi.getUserProfile(user.id),
-          ]);
-
-          const merged = allGames.map((game) => {
-            const userStatus = userGames.find((s) => s.gameId === game.id);
-            return {
-              ...game,
-              status: userStatus?.locked ? ("locked" as const) : game.status,
-              completed: userStatus?.completed ?? false,
-            };
-          });
-
-          if (!cancelled) {
-            setGames(merged);
-            setUserProfile(profile);
-          }
-        } catch (err: any) {
-          console.error("Failed to load games:", err);
-          if (!cancelled) setGames([]);
-        } finally {
-          if (!cancelled) setLoading(false);
+        if (!user?.id) {
+          if (!cancelled) setGames(STATIC_GAMES);
+          return;
         }
-      };
 
-      loadGames();
-      return () => { cancelled = true; };
-    }, [authLoading, user?.id, language])
-  );
+        const [allGames, userGames, profile] = await Promise.all([
+          storyApi.getGames(lang),
+          storyApi.getUserGames(user.id, lang),
+          storyApi.getUserProfile(user.id),
+        ]);
+
+        const merged = allGames.map((game) => {
+          const userStatus = userGames.find((s) => s.gameId === game.id);
+          return {
+            ...game,
+            status: userStatus?.locked ? ("locked" as const) : game.status,
+            completed: userStatus?.completed ?? false,
+          };
+        });
+
+        if (!cancelled) {
+          setGames(merged);
+          setUserProfile(profile);
+        }
+      } catch (err: any) {
+        console.error("Failed to load games:", err);
+        if (!cancelled) setGames([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadGames();
+    return () => { cancelled = true; };
+  }, [authLoading, isFocused, user?.id]);
 
   const handleCardPress = (item: Game) => {
     if (item.status !== "available" || !item.puzzleId) return;
@@ -281,15 +284,11 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
         const nextThreshold = getNextLevelThreshold(userProfile.level);
         if (nextThreshold == null) return null;
         const xpPercent = Math.min((userProfile.experience / nextThreshold) * 100, 100);
-        const xpToNext = nextThreshold - userProfile.experience;
         return (
           <View style={styles.xpSection}>
             <View style={styles.xpRow}>
               <Text style={styles.xpBarLabel}>
                 {userProfile.experience} / {nextThreshold} XP
-              </Text>
-              <Text style={styles.xpNextLabel}>
-                {xpToNext > 0 ? `${xpToNext} to next level` : "Level up!"}
               </Text>
             </View>
             <View style={styles.xpBarTrack}>
